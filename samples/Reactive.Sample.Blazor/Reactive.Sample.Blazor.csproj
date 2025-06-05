@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Reactive.Core\Reactive.Core.csproj" />
+    <ProjectReference Include="..\..\src\Reactive.Blazor\Reactive.Blazor.csproj" />
   </ItemGroup>
 
   <ItemGroup>

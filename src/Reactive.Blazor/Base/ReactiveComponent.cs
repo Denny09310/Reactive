@@ -2,20 +2,20 @@
 using Reactive.Core;
 using Reactive.Core.Extensions;
 
-namespace Reactive.Sample.Blazor.Components.Base;
+namespace Reactive.Blazor;
 
 /// <summary>
-/// Base component for Blazor that automatically tracks and disposes 
+/// Base component for Blazor that automatically tracks and disposes
 /// reactive <see cref="Effect"/> instances when the component is disposed.
-/// 
-/// Inherit from this class to safely register Effects inside components without 
+///
+/// Inherit from this class to safely register Effects inside components without
 /// manually managing their lifecycle.
 /// </summary>
 /// <remarks>
 /// This component provides two overloads of <see cref="Effect"/>:
 /// - <c>Effect(Action)</c>: for simple effects.
 /// - <c>Effect(Func&lt;Action?&gt;)</c>: for effects with optional cleanup logic.
-/// 
+///
 /// All effects are automatically disposed when the component is destroyed (e.g., removed from the render tree).
 /// </remarks>
 public class ReactiveComponent : ComponentBase, IDisposable

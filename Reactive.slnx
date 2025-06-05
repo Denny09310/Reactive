@@ -10,6 +10,7 @@
     <Project Path="samples/Reactive.Sample/Reactive.Sample.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Reactive.Blazor/Reactive.Blazor.csproj" Id="51e413af-2afe-493c-bcc7-02771a321769" />
     <Project Path="src/Reactive.Core/Reactive.Core.csproj" />
   </Folder>
 </Solution>
