@@ -1,35 +1,54 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Reactive.Core;
 using Reactive.Core.Extensions;
 
 namespace Reactive.Blazor;
 
 /// <summary>
-/// Base component for Blazor that automatically tracks and disposes
-/// reactive <see cref="Effect"/> instances when the component is disposed.
-///
-/// Inherit from this class to safely register Effects inside components without
-/// manually managing their lifecycle.
+/// Base class for Blazor components that require automatic management of reactive <see cref="Effect"/> instances.
+/// <para>
+/// Inherit from this class to register effects within your component without manually handling their disposal.
+/// All registered effects are automatically disposed when the component is removed from the render tree.
+/// </para>
 /// </summary>
 /// <remarks>
-/// This component provides two overloads of <see cref="Effect"/>:
-/// - <c>Effect(Action)</c>: for simple effects.
-/// - <c>Effect(Func&lt;Action?&gt;)</c>: for effects with optional cleanup logic.
-///
-/// All effects are automatically disposed when the component is destroyed (e.g., removed from the render tree).
+/// <para>
+/// This class provides two overloads of the <see cref="Effect"/> method:
+/// <list type="bullet">
+///   <item>
+///     <description><c>Effect(Action)</c>: Registers a simple effect without cleanup logic.</description>
+///   </item>
+///   <item>
+///     <description><c>Effect(Func&lt;Action?&gt;)</c>: Registers an effect with optional cleanup logic.</description>
+///   </item>
+/// </list>
+/// </para>
+/// <para>
+/// All effects are tracked and disposed automatically when the component is destroyed.
+/// </para>
 /// </remarks>
 public class ReactiveComponent : ComponentBase, IDisposable
 {
+    /// <summary>
+    /// Stores all active <see cref="Effect"/> instances registered by this component.
+    /// </summary>
     private readonly HashSet<Effect> _effects = [];
 
     private bool _disposed;
 
+    /// <summary>
+    /// Disposes the component and all registered effects.
+    /// </summary>
     public void Dispose()
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Disposes managed resources, including all registered effects.
+    /// </summary>
+    /// <param name="disposing">Indicates whether the method is called from <see cref="Dispose()"/>.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
@@ -50,12 +69,24 @@ public class ReactiveComponent : ComponentBase, IDisposable
         _disposed = true;
     }
 
+    /// <summary>
+    /// Registers a reactive effect with optional cleanup logic.
+    /// The effect will be automatically disposed when the component is destroyed.
+    /// </summary>
+    /// <param name="callback">
+    /// A function that executes the effect logic and optionally returns a cleanup <see cref="Action"/>.
+    /// </param>
     protected void Effect(Func<Action?> callback)
     {
         var effect = Reactivity.Effect(callback);
         _effects.Add(effect);
     }
 
+    /// <summary>
+    /// Registers a simple reactive effect without cleanup logic.
+    /// The effect will be automatically disposed when the component is destroyed.
+    /// </summary>
+    /// <param name="callback">The effect logic to execute.</param>
     protected void Effect(Action callback)
     {
         var effect = Reactivity.Effect(callback);

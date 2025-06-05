@@ -1,45 +1,46 @@
-﻿using Reactive.Core.Interfaces;
+using Reactive.Core.Interfaces;
 using System.Diagnostics.CodeAnalysis;
 using static Reactive.Core.Extensions.Reactivity;
 using static Reactive.Core.Utils.Scheduler;
-using static Reactive.Core.Utils.Tracker;
 
 namespace Reactive.Core;
 
 /// <summary>
-/// Shared enum for all Resource states.
+/// Represents the possible states of a resource.
 /// </summary>
 public enum ResourceState
 {
     Idle,
-    Loading,     // initial load: no prior data
-    Success,     // data loaded, not refreshing
-    Refreshing,  // data loaded, but a new fetch is in progress
+    Loading,     // Initial load, no prior data
+    Success,     // Data loaded, not refreshing
+    Refreshing,  // Data loaded, refresh in progress
     Error,
 }
 
 /// <summary>
-/// “Parameterless” Resource: loader is just Func<CancellationToken, Task<T>>,
-/// and Refetch() always calls Refresh(_loader).
+/// Resource with a parameterless loader. Use <see cref="Refetch"/> to trigger loading.
 /// </summary>
 public class Resource<T> : ResourceBase<T>
 {
     private readonly Func<CancellationToken, Task<T>> _loader;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Resource{T}"/> class.
+    /// </summary>
+    /// <param name="loader">The function to load the resource.</param>
+    /// <param name="start">If true, starts loading immediately.</param>
     public Resource(Func<CancellationToken, Task<T>> loader, bool start = true)
     {
         _loader = loader;
 
         if (start)
         {
-            // Fire‐and‐forget the first load.
             _ = Refetch();
         }
     }
 
     /// <summary>
-    /// Kick off (or re‐kick) a data fetch.
-    /// Internally, calls <see cref="ResourceBase{TValue}.Refetch(Func{CancellationToken, Task{TValue}})"/> which handles cancellation + stale revalidate.
+    /// Triggers a data fetch using the loader.
     /// </summary>
     public Task Refetch()
     {
@@ -48,14 +49,10 @@ public class Resource<T> : ResourceBase<T>
 }
 
 /// <summary>
-/// Abstract base that holds all the common fields and the “fetch‐with‐cancellation + stale-while-revalidate” logic.
-/// Subclasses merely supply a Func<CancellationToken, Task<TValue>> (possibly capturing arguments).
+/// Base class for resources, handling state, cancellation, and fetch logic.
 /// </summary>
 public abstract class ResourceBase<TValue> : IDisposable
 {
-    //———— Common backing fields ————
-    // These three States are exactly the same in both variants:
-
     #region States
 
     protected readonly State<Exception?> _error = new(null);
@@ -67,54 +64,61 @@ public abstract class ResourceBase<TValue> : IDisposable
     private CancellationTokenSource? _cts;
     private bool _disposed;
 
-    //———— Public API (exposed to consumers) ————
-
     /// <summary>
-    /// True if (Status == Success or Status == Refreshing).
-    /// During “Refreshing” we keep showing the old _value until the new fetch finishes.
+    /// True if the resource has a value (Success or Refreshing).
     /// </summary>
     [MemberNotNullWhen(false, nameof(Error))]
     [MemberNotNullWhen(true, nameof(Value))]
     public bool HasValue => Status.Get() is ResourceState state &&
-        state == ResourceState.Success ||
-        state == ResourceState.Refreshing;
+        (state == ResourceState.Success || state == ResourceState.Refreshing);
 
     /// <summary>
-    /// True only if this is the very first load (Status == Loading and no prior data).
+    /// True if the resource is loading for the first time.
     /// </summary>
-    public bool IsLoading =>
-        Status.Get() == ResourceState.Loading;
+    public bool IsLoading => Status.Get() == ResourceState.Loading;
 
     /// <summary>
-    /// True if we already had a successful value and have kicked off a new fetch (Status == Refreshing).
-    /// Consumer can choose to keep displaying the old Value while a refresh is in flight.
+    /// True if a refresh is in progress and a value is available.
     /// </summary>
     [MemberNotNullWhen(true, nameof(Value))]
-    public bool IsRefreshing =>
-        Status.Get() == ResourceState.Refreshing;
+    public bool IsRefreshing => Status.Get() == ResourceState.Refreshing;
 
     #region Signals
 
+    /// <summary>
+    /// The current error, if any.
+    /// </summary>
     public IState<Exception?> Error => _error;
 
+    /// <summary>
+    /// The current status of the resource.
+    /// </summary>
     public IState<ResourceState> Status => _status;
 
+    /// <summary>
+    /// The current value of the resource.
+    /// </summary>
     public IState<TValue?> Value => _value;
 
     #endregion Signals
 
+    /// <summary>
+    /// Disposes the resource and cancels any in-flight operations.
+    /// </summary>
     public void Dispose()
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Disposes managed and unmanaged resources.
+    /// </summary>
+    /// <param name="disposing">True if called from Dispose.</param>
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
-        {
             return;
-        }
 
         if (disposing)
         {
@@ -130,54 +134,43 @@ public abstract class ResourceBase<TValue> : IDisposable
         _disposed = true;
     }
 
-    //———— Core logic: “cancel old fetch + run new fetch with stale-while-revalidate” ————
-    //
-    // Any subclass will call this, passing in a Func<CancellationToken, Task<TValue>>
-    // that actually does the data loading.  We handle:
-    //   • canceling the previous CTS
-    //   • deciding whether to go into Loading (if no prior success) or Refreshing (if we already had data)
-    //   • invoking the loader, catching OperationCanceledException vs. other Exception
-    //   • updating _value, _error, and _status accordingly
-    //
-    // “loader” can capture any external argument (e.g. TArgs) if needed.
+    /// <summary>
+    /// Cancels any in-flight fetch and starts a new one, handling state transitions and errors.
+    /// </summary>
+    /// <param name="loader">The function to load the resource.</param>
     protected async Task Refetch(Func<CancellationToken, Task<TValue>> loader)
     {
-        // 1) Cancel the previous in‐flight request (if any)
-        _cts?.Cancel();
-        _cts?.Dispose();
+        if (_cts is not null)
+        {
+            await _cts.CancelAsync();
+            _cts.Dispose();
+        }
+
         _cts = new CancellationTokenSource();
 
         var token = _cts.Token;
 
-        // 2) If we already succeeded once, go into Refreshing (keep old _value).
-        //    Otherwise (Idle or Error), go into Loading, clear old _value and old _error.
         var success = _status.Get() == ResourceState.Success;
         if (success)
         {
             _status.Set(ResourceState.Refreshing);
-            // note: do NOT clear _value here, so consumers still see the old Value.
-            // _error stays as whatever it was (likely null).
         }
         else
         {
             Batch(() =>
             {
                 _status.Set(ResourceState.Loading);
-                _value.Set(default(TValue)); // explicitly clear old data
-                _error.Set(default(Exception));    // clear previous error
+                _value.Set(default(TValue));
+                _error.Set(default(Exception));
             });
         }
 
         try
         {
-            // 3) Actually perform the loader.  If it throws OperationCanceledException
-            //    (and token was canceled), we swallow it.  Otherwise catch any other Exception.
             var result = await loader(token);
 
-            // If cancellation was requested mid‐await, bail out and do NOT touch _value/_status.
             if (token.IsCancellationRequested) return;
 
-            // 4) Success: set new value + status
             Batch(() =>
             {
                 _error.Set(default(Exception));
@@ -187,7 +180,6 @@ public abstract class ResourceBase<TValue> : IDisposable
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // 5a) Canceled before completion: revert to Success or Idle
             if (success)
             {
                 _status.Set(ResourceState.Success);
@@ -199,10 +191,8 @@ public abstract class ResourceBase<TValue> : IDisposable
         }
         catch (Exception ex)
         {
-            // 5b) If cancellation already triggered, bail out.
             if (token.IsCancellationRequested) return;
 
-            // Otherwise, record the exception & set status=Error.
             Batch(() =>
             {
                 _error.Set(ex);
@@ -213,8 +203,7 @@ public abstract class ResourceBase<TValue> : IDisposable
 }
 
 /// <summary>
-/// “Reactive-argument” Resource: whenever the upstream Computed<TArgs> changes,
-/// automatically re-fetch with the new argument.  Exposes Args as a Computed signal.
+/// Resource with reactive arguments. Automatically refetches when arguments change.
 /// </summary>
 public class Resource<TArgs, TValue> : ResourceBase<TValue>
 {
@@ -223,27 +212,24 @@ public class Resource<TArgs, TValue> : ResourceBase<TValue>
     private readonly Func<TArgs, CancellationToken, Task<TValue>> _loader;
 
     /// <summary>
-    /// argsFactory: a function that returns the current TArgs.
-    /// loader: a function (TArgs, CancellationToken) → Task<TValue>.
-    /// If start==true, does one initial fetch using argsFactory(); otherwise waits.
+    /// Initializes a new instance of the <see cref="Resource{TArgs, TValue}"/> class.
     /// </summary>
+    /// <param name="args">Function to get the current arguments.</param>
+    /// <param name="loader">Function to load the resource with arguments.</param>
+    /// <param name="start">If true, starts loading immediately.</param>
     public Resource(Func<TArgs> args, Func<TArgs, CancellationToken, Task<TValue>> loader, bool start = true)
     {
-        // 1) Wrap the argsFactory in a Computed<TArgs>, so we get a reactive signal for arguments
         _args = Signal.Computed(args);
         _loader = loader;
 
-        // 2) Capture the very first argument so that the first Effect run does not re-fetch
         var initial = _args.Get();
         TArgs last = initial;
 
-        // 3) If start==true, do exactly one initial fetch
         if (start)
         {
             _ = Refetch(initial);
         }
 
-        // 4) Create an Effect that only fires when _args.Get() changes from last
         _effect = Effect(() =>
         {
             var current = _args.Get();
@@ -256,20 +242,16 @@ public class Resource<TArgs, TValue> : ResourceBase<TValue>
     }
 
     /// <summary>
-    /// Publicly expose the current args (untracked).
-    /// Consumers can read or compute off this if needed.
+    /// Gets the current arguments as a computed state.
     /// </summary>
-    /// <remarks>
-    /// If you need to access the <see cref="Args"/> inside an <see cref="Effect"/>
-    /// wrap the call with <see cref="Untracked{T}(Func{T})"/> to avoid duplicate fire-and-forget
-    /// </remarks>
     public IState<TArgs> Args => _args;
 
     /// <summary>
-    /// Manually trigger a fetch using a specific argument.
+    /// Triggers a fetch with the specified arguments.
     /// </summary>
     public Task Refetch(TArgs args) => Refetch(ct => _loader(args, ct));
 
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
         if (disposing)
