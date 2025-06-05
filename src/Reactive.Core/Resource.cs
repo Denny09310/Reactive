@@ -51,7 +51,7 @@ public class Resource<T> : ResourceBase<T>
 /// Abstract base that holds all the common fields and the “fetch‐with‐cancellation + stale-while-revalidate” logic.
 /// Subclasses merely supply a Func<CancellationToken, Task<TValue>> (possibly capturing arguments).
 /// </summary>
-public abstract class ResourceBase<TValue>
+public abstract class ResourceBase<TValue> : IDisposable
 {
     //———— Common backing fields ————
     // These three States are exactly the same in both variants:
@@ -65,6 +65,7 @@ public abstract class ResourceBase<TValue>
     #endregion States
 
     private CancellationTokenSource? _cts;
+    private bool _disposed;
 
     //———— Public API (exposed to consumers) ————
 
@@ -101,6 +102,33 @@ public abstract class ResourceBase<TValue>
     public IState<TValue?> Value => _value;
 
     #endregion Signals
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (disposing)
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+
+            _status.Dispose();
+            _value.Dispose();
+            _error.Dispose();
+        }
+
+        _cts = null;
+        _disposed = true;
+    }
 
     //———— Core logic: “cancel old fetch + run new fetch with stale-while-revalidate” ————
     //
@@ -191,6 +219,7 @@ public abstract class ResourceBase<TValue>
 public class Resource<TArgs, TValue> : ResourceBase<TValue>
 {
     private readonly Computed<TArgs> _args;
+    private readonly Effect _effect;
     private readonly Func<TArgs, CancellationToken, Task<TValue>> _loader;
 
     /// <summary>
@@ -215,7 +244,7 @@ public class Resource<TArgs, TValue> : ResourceBase<TValue>
         }
 
         // 4) Create an Effect that only fires when _args.Get() changes from last
-        Effect(() =>
+        _effect = Effect(() =>
         {
             var current = _args.Get();
             if (EqualityComparer<TArgs>.Default.Equals(current, last))
@@ -231,7 +260,7 @@ public class Resource<TArgs, TValue> : ResourceBase<TValue>
     /// Consumers can read or compute off this if needed.
     /// </summary>
     /// <remarks>
-    /// If you need to access the <see cref="Args"/> inside an <see cref="Effect"/> 
+    /// If you need to access the <see cref="Args"/> inside an <see cref="Effect"/>
     /// wrap the call with <see cref="Untracked{T}(Func{T})"/> to avoid duplicate fire-and-forget
     /// </remarks>
     public IState<TArgs> Args => _args;
@@ -240,4 +269,15 @@ public class Resource<TArgs, TValue> : ResourceBase<TValue>
     /// Manually trigger a fetch using a specific argument.
     /// </summary>
     public Task Refetch(TArgs args) => Refetch(ct => _loader(args, ct));
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _effect.Dispose();
+            _args.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
 }

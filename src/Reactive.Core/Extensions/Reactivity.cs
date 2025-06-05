@@ -2,7 +2,9 @@
 
 public static class Reactivity
 {
-    public static Effect Effect(Action callback) => new(callback);
+    public static Effect Effect(Func<Action?> callback) => new(callback);
+
+    public static Effect Effect(Action callback) => new(() => { callback(); return null; });
 
     public static Resource<T> Resource<T>(Func<CancellationToken, Task<T>> loader, bool start = true) => new(loader, start);
 

@@ -7,7 +7,14 @@ public class State<TValue>(TValue initialValue) : IWritableState<TValue>
 {
     private readonly HashSet<Effect> _subscribers = [];
 
+    private bool _disposed;
     private TValue _value = initialValue;
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 
     public TValue Get()
     {
@@ -35,7 +42,7 @@ public class State<TValue>(TValue initialValue) : IWritableState<TValue>
 
         foreach (var subscriber in _subscribers.ToList())
         {
-            Schedule(subscriber.Invalidate);
+            Schedule(subscriber.Execute);
         }
     }
 
@@ -47,5 +54,18 @@ public class State<TValue>(TValue initialValue) : IWritableState<TValue>
     void IState.Unlink(Effect effect)
     {
         _subscribers.Remove(effect);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                _subscribers.Clear();
+            }
+
+            _disposed = true;
+        }
     }
 }

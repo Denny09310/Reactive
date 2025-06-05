@@ -2,6 +2,21 @@
 
 public static class Tracker
 {
+    public static void Track(Effect effect, Action body)
+    {
+        var prev = Effect.Current;
+        Effect.Current = effect;
+
+        try
+        {
+            body();
+        }
+        finally
+        {
+            Effect.Current = prev;
+        }
+    }
+
     public static T Untracked<T>(Func<T> fn)
     {
         var prev = Effect.Current;

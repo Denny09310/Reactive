@@ -40,7 +40,7 @@ id.Set(4);
 
 await Task.Delay(1000);
 
-Console.WriteLine("Changing user id to 4");
+Console.WriteLine("Changing user id to 6");
 id.Set(6);
 
 Console.ReadKey();

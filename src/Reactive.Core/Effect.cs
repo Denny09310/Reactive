@@ -1,51 +1,71 @@
 ﻿using Reactive.Core.Interfaces;
+using static Reactive.Core.Utils.Tracker;
 
 namespace Reactive.Core;
 
-public class Effect
+public class Effect : IDisposable
 {
     [ThreadStatic]
     internal static Effect? Current;
 
-    private readonly Action _callback;
+    private readonly Func<Action?> _callback;
     private readonly HashSet<IState> _dependencies = [];
 
-    public Effect(Action callback)
+    private Action? _cleanup;
+    private bool _disposed;
+
+    public Effect(Func<Action?> callback)
     {
         _callback = callback;
-        Run();
+        Execute();
     }
 
-    public void Invalidate()
+    public void Dispose()
     {
-        Run();
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 
-    public void Register(IState signal)
+    public void Execute()
+    {
+        Invalidate();
+        Track(this, () =>
+        {
+            _cleanup = _callback();
+        });
+    }
+
+    public void Link(IState signal)
     {
         _dependencies.Add(signal);
         signal.Link(this);
     }
 
-    public void Run()
+    protected virtual void Dispose(bool disposing)
     {
-        foreach (var dependency in _dependencies)
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (disposing)
+        {
+            Invalidate();
+        }
+
+        _disposed = true;
+    }
+
+    private void Invalidate()
+    {
+        foreach (var dependency in _dependencies.ToList())
         {
             dependency.Unlink(this);
         }
 
         _dependencies.Clear();
 
-        var prev = Current;
-        Current = this;
-
-        try
-        {
-            _callback();
-        }
-        finally
-        {
-            Current = prev;
-        }
+        _cleanup?.Invoke();
+        _cleanup = null;
     }
 }

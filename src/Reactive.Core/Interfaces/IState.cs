@@ -1,6 +1,6 @@
 ﻿namespace Reactive.Core.Interfaces;
 
-public interface IState
+public interface IState : IDisposable
 {
     internal abstract void Link(Effect effect);
 

@@ -1,33 +1,46 @@
 ﻿using Reactive.Core.Interfaces;
+using static Reactive.Core.Extensions.Reactivity;
 
 namespace Reactive.Core;
 
 public class Computed<T> : IState<T>
 {
     private readonly Func<T> _compute;
+    private readonly Effect _effect;
     private readonly HashSet<Effect> _subscribers = [];
 
+    private bool _disposed;
     private T _value = default!;
 
     public Computed(Func<T> compute)
     {
         _compute = compute;
-        var effect = new Effect(() =>
+        _effect = Effect(() =>
         {
             var result = _compute();
             if (!EqualityComparer<T>.Default.Equals(_value, result))
             {
                 _value = result;
-                NotifySubscribers();
+
+                foreach (var subscriber in _subscribers.ToList())
+                {
+                    subscriber.Execute();
+                }
             }
         });
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 
     public T Get()
     {
         if (Effect.Current is { } effect)
         {
-            effect.Register(this);
+            effect.Link(this);
         }
 
         return _value;
@@ -43,11 +56,19 @@ public class Computed<T> : IState<T>
         _subscribers.Remove(effect);
     }
 
-    private void NotifySubscribers()
+    protected virtual void Dispose(bool disposing)
     {
-        foreach (var subscriber in _subscribers.ToList())
+        if (_disposed)
         {
-            subscriber.Invalidate();
+            return;
         }
+
+        if (disposing)
+        {
+            _effect.Dispose();
+            _subscribers.Clear();
+        }
+
+        _disposed = true;
     }
 }
