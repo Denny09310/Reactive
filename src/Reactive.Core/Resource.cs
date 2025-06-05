@@ -1,4 +1,4 @@
-﻿using Reactive.Core.Interfaces;
+using Reactive.Core.Interfaces;
 using System.Diagnostics.CodeAnalysis;
 using static Reactive.Core.Extensions.Reactivity;
 using static Reactive.Core.Utils.Scheduler;
