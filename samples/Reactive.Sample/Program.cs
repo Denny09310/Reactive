@@ -8,4 +8,4 @@ Effect(() =>
     Console.WriteLine($"[{string.Join(", ", users.Get())}]");
 });
 
-users.Set(u => [..u, "Smith"]);
+users.Set(prev => [..prev, "Smith"]);
