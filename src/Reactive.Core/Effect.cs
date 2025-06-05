@@ -1,4 +1,5 @@
 using Reactive.Core.Interfaces;
+using static Reactive.Core.Utils.Scheduler;
 using static Reactive.Core.Utils.Tracker;
 
 namespace Reactive.Core;
@@ -42,7 +43,7 @@ public class Effect : IDisposable
     public Effect(Func<Action?> callback)
     {
         _callback = callback;
-        Execute();
+        Schedule(Execute);
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿@page "/counter"
+@page "/counter"
 
 <PageTitle>Counter</PageTitle>
 
@@ -14,6 +14,6 @@
 
     private void IncrementCount()
     {
-        count.Set(prev => prev + 1);
+        count.Update(prev => prev + 1);
     }
 }

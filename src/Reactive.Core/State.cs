@@ -70,7 +70,7 @@ public class State<TValue>(TValue initialValue) : IWritableState<TValue>
     /// Updates the value of the state using an updater function. Notifies all subscribers if the value changes.
     /// </summary>
     /// <param name="updater">A function that takes the current value and returns the new value.</param>
-    public void Set(Func<TValue, TValue> updater)
+    public void Update(Func<TValue, TValue> updater)
     {
         Set(updater(_value));
     }

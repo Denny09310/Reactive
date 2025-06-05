@@ -17,5 +17,5 @@ public interface IWritableState<TValue> : IState<TValue>
     /// Updates the state using the provided updater function, which receives the current value and returns the new value.
     /// </summary>
     /// <param name="updater">A function that takes the current value and returns the updated value.</param>
-    void Set(Func<TValue, TValue> updater);
+    void Update(Func<TValue, TValue> updater);
 }
