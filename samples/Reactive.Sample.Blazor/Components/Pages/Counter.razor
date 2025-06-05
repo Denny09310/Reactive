@@ -1,0 +1,19 @@
+﻿@page "/counter"
+
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @count.Get()</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code
+{
+    private State<int> count = Signal.State(0);
+
+    private void IncrementCount()
+    {
+        count.Set(prev => prev + 1);
+    }
+}

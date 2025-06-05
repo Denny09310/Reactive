@@ -1,0 +1,22 @@
+﻿@page "/"
+@using Reactive.Sample.Blazor.Components.Base
+@inherits ReactiveComponent
+
+<PageTitle>Home</PageTitle>
+
+<input @bind:get="@(username.Get())" @bind:set="@(value => username.Set(value))" type="text" @bind:event="oninput" />
+
+<p>Hello @username.Get()!</p>
+
+@code
+{
+    private State<string> username = Signal.State("");
+
+    protected override void OnInitialized()
+    {
+        Effect(() =>
+        {
+            Console.WriteLine("Username: {0}", username.Get());
+        });
+    }
+}

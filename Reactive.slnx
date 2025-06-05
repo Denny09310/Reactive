@@ -5,8 +5,9 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/samples/">
-    <Project Path="samples/Reactive.Signals.Fetch/Reactive.Signals.Fetch.csproj" />
-    <Project Path="samples/Reactive.Simple.Demo/Reactive.Simple.Demo.csproj" />
+    <Project Path="samples/Reactive.Sample.Blazor/Reactive.Sample.Blazor.csproj" Id="a283343b-e10c-4171-b56c-c205bd04946c" />
+    <Project Path="samples/Reactive.Sample.Fetch/Reactive.Sample.Fetch.csproj" />
+    <Project Path="samples/Reactive.Sample/Reactive.Sample.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Reactive.Core/Reactive.Core.csproj" />
