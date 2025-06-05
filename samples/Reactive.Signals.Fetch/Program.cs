@@ -5,7 +5,7 @@ using static Reactive.Core.Extensions.Reactivity;
 using static Reactive.Core.Utils.Tracker;
 
 var id = Signal.State(1);
-var resource = Signal.Resource(() => new FetchUserArgs(id.Get()), FetchUserAsync);
+var resource = Resource(() => new FetchUserArgs(id.Get()), FetchUserAsync);
 
 Effect(() =>
 {
