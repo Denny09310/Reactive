@@ -24,7 +24,7 @@ Effect(() =>
             break;
 
         case ResourceState.Success:
-            Console.WriteLine("Fetched user with id {0}. Name: '{1}'", value.Id, value.FirstName);
+            Console.WriteLine("Fetched user with id {0}. Name: '{1} {2}'", value.Id, value.FirstName, value.LastName);
             break;
 
         case ResourceState.Error:
@@ -43,7 +43,7 @@ await Task.Delay(1000);
 Console.WriteLine("Changing user id to 6");
 id.Set(6);
 
-Console.ReadKey();
+await Task.Delay(1000);
 
 static async Task<User> FetchUserAsync(FetchUserArgs parameters, CancellationToken ct)
 {
