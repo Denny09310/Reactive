@@ -1,4 +1,4 @@
-﻿using Reactive.Core;
+using Reactive.Core;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using static Reactive.Core.Extensions.Reactivity;

@@ -1,5 +1,4 @@
 using Reactive.Core.Interfaces;
-using static Reactive.Core.Utils.Scheduler;
 using static Reactive.Core.Utils.Tracker;
 
 namespace Reactive.Core;
@@ -43,7 +42,7 @@ public class Effect : IDisposable
     public Effect(Func<Action?> callback)
     {
         _callback = callback;
-        Schedule(Execute);
+        Execute();
     }
 
     /// <summary>
@@ -73,8 +72,10 @@ public class Effect : IDisposable
     /// <param name="signal">The state to link.</param>
     public void Link(IState signal)
     {
-        _dependencies.Add(signal);
-        signal.Link(this);
+        if(_dependencies.Add(signal))
+        {
+            signal.Link(this);
+        }
     }
 
     /// <summary>
@@ -101,12 +102,13 @@ public class Effect : IDisposable
     /// </summary>
     private void Invalidate()
     {
-        foreach (var dependency in _dependencies.ToList())
+        IState[] dependencies = [.. _dependencies];
+        _dependencies.Clear();
+
+        foreach (var dependency in dependencies)
         {
             dependency.Unlink(this);
         }
-
-        _dependencies.Clear();
 
         _cleanup?.Invoke();
         _cleanup = null;

@@ -31,16 +31,16 @@ public static class Tracker
     /// Temporarily clears the current effect, runs the function, and restores the previous effect.
     /// </summary>
     /// <typeparam name="T">The return type of the function.</typeparam>
-    /// <param name="fn">The function to execute untracked.</param>
+    /// <param name="body">The function to execute untracked.</param>
     /// <returns>The result of the function.</returns>
-    public static T Untracked<T>(Func<T> fn)
+    public static T Untracked<T>(Func<T> body)
     {
         var prev = Effect.Current;
         Effect.Current = null;
 
         try
         {
-            return fn();
+            return body();
         }
         finally
         {
@@ -52,15 +52,15 @@ public static class Tracker
     /// Executes an action without tracking any effect dependencies.
     /// Temporarily clears the current effect, runs the action, and restores the previous effect.
     /// </summary>
-    /// <param name="action">The action to execute untracked.</param>
-    public static void Untracked(Action action)
+    /// <param name="body">The action to execute untracked.</param>
+    public static void Untracked(Action body)
     {
         var prev = Effect.Current;
         Effect.Current = null;
 
         try
         {
-            action();
+            body();
         }
         finally
         {

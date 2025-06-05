@@ -1,53 +1,66 @@
-namespace Reactive.Core.Utils;
-
-/// <summary>
-/// Provides batching and scheduling utilities for executing actions (effects).
-/// </summary>
-public static class Scheduler
+namespace Reactive.Core.Utils
 {
     /// <summary>
-    /// Stores scheduled effects to be executed after batching.
+    /// Provides batching and scheduling utilities for executing actions (effects),
+    /// but tracks nested batches with a depth counter instead of a simple boolean.
     /// </summary>
-    private static readonly HashSet<Action> _effects = [];
-
-    /// <summary>
-    /// Indicates whether batching is currently active.
-    /// </summary>
-    private static bool _batching = false;
-
-    /// <summary>
-    /// Executes the given action within a batching context.
-    /// All effects scheduled during the action are collected and executed after the batch completes.
-    /// </summary>
-    /// <param name="action">The action to execute within the batch.</param>
-    public static void Batch(Action action)
+    public static class Scheduler
     {
-        _batching = true;
-        action();
-        _batching = false;
+        // Holds all effects that need to run once the outermost batch completes.
+        private static readonly HashSet<Effect> _effects = [];
 
-        foreach (var effect in _effects.ToList())
+        // Instead of a bool, we track how many Batch(...) calls are currently "open."
+        private static int _depth = 0;
+
+        /// <summary>
+        /// Executes the given action within a batching context.
+        /// Nested Batch(...) invocations simply increment the counter and do not flush effects
+        /// until the outermost Batch is closed.
+        /// </summary>
+        public static void Batch(Action action)
         {
-            effect();
+            // Enter a new batch scope
+            _depth++;
+
+            try
+            {
+                action();
+            }
+            finally
+            {
+                // Exit this batch scope
+                _depth--;
+
+                // Only the *outermost* Batch call actually flushes & executes
+                if (_depth == 0)
+                {
+                    // Drain the set of scheduled effects exactly once,
+                    // in case the action (or nested batches) added more.
+                    Effect[] effects = [.. _effects];
+                    _effects.Clear();
+
+                    foreach (var effect in effects)
+                    {
+                        effect.Execute();
+                    }
+                }
+            }
         }
 
-        _effects.Clear();
-    }
-
-    /// <summary>
-    /// Schedules an effect to be executed.
-    /// If batching is active, the effect is queued; otherwise, it is executed immediately.
-    /// </summary>
-    /// <param name="effect">The effect to schedule.</param>
-    public static void Schedule(Action effect)
-    {
-        if (_batching)
+        /// <summary>
+        /// Schedules an effect to run. If we're inside *any* batch (depth > 0),
+        /// just enqueue it; otherwise, run it immediately.
+        /// </summary>
+        public static void Schedule(Effect effect)
         {
-            _effects.Add(effect);
-        }
-        else
-        {
-            effect();
+            if (_depth > 0)
+            {
+                _effects.Add(effect);
+            }
+            else
+            {
+                effect.Execute();
+            }
         }
     }
 }

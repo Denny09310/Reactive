@@ -40,18 +40,27 @@ public class Computed<T> : IState<T>
     public Computed(Func<T> compute)
     {
         _compute = compute;
+
         _effect = Effect(() =>
         {
             var result = _compute();
-            if (!EqualityComparer<T>.Default.Equals(_value, result))
+            if (EqualityComparer<T>.Default.Equals(_value, result))
             {
-                _value = result;
-
-                foreach (var subscriber in _subscribers.ToList())
-                {
-                    Schedule(subscriber.Execute);
-                }
+                return;
             }
+
+            _value = result;
+
+            Effect[] subscribers = [.. _subscribers];
+            _subscribers.Clear();
+
+            Batch(() =>
+            {
+                foreach (var subscriber in subscribers)
+                {
+                    Schedule(subscriber);
+                }
+            });
         });
     }
 

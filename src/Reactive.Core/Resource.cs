@@ -160,8 +160,8 @@ public abstract class ResourceBase<TValue> : IDisposable
             Batch(() =>
             {
                 _status.Set(ResourceState.Loading);
-                _value.Set(default(TValue));
-                _error.Set(default(Exception));
+                _value.Set(default);
+                _error.Set(default);
             });
         }
 
@@ -173,7 +173,7 @@ public abstract class ResourceBase<TValue> : IDisposable
 
             Batch(() =>
             {
-                _error.Set(default(Exception));
+                _error.Set(default);
                 _value.Set(result);
                 _status.Set(ResourceState.Success);
             });

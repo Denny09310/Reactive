@@ -41,7 +41,7 @@ public class State<TValue>(TValue initialValue) : IWritableState<TValue>
     {
         if (Effect.Current is { } effect)
         {
-            _subscribers.Add(effect);
+            effect.Link(this);
         }
 
         return _value;
@@ -60,10 +60,16 @@ public class State<TValue>(TValue initialValue) : IWritableState<TValue>
 
         _value = value;
 
-        foreach (var subscriber in _subscribers.ToList())
+        Effect[] subscribers = [.. _subscribers];
+        _subscribers.Clear();
+
+        Batch(() =>
         {
-            Schedule(subscriber.Execute);
-        }
+            foreach (var subscriber in subscribers)
+            {
+                Schedule(subscriber);
+            }
+        });
     }
 
     /// <summary>
