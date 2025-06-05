@@ -1,11 +1,11 @@
 ﻿using Reactive.Core;
 using static Reactive.Core.Extensions.Reactivity;
 
-var users = Signal.State<List<string>>(["Dennis", "Ilio"]);
+var users = Signal.State<List<string>>(["Jasmine", "Jonh"]);
 
 Effect(() =>
 {
     Console.WriteLine($"[{string.Join(", ", users.Get())}]");
 });
 
-users.Set(u => [..u, "Enea"]);
+users.Set(u => [..u, "Smith"]);
