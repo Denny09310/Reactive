@@ -11,7 +11,7 @@ public static class Scheduler
     /// Holds the set of effects scheduled to run at the end of the batch.
     /// Duplicate entries are avoided via HashSet semantics.
     /// </summary>
-    private static readonly HashSet<Effect> _schedule = [];
+    private static readonly HashSet<Effect?> _schedule = [];
 
     /// <summary>
     /// Tracks nested batching depth. Only the outermost batch will flush the effect queue.
@@ -37,17 +37,7 @@ public static class Scheduler
 
             if (_depth == 0)
             {
-                // Drain effects while allowing new ones to be scheduled during execution
-                while (_schedule.Count > 0)
-                {
-                    var effects = _schedule.ToArray();
-                    _schedule.Clear();
-
-                    foreach (var effect in effects)
-                    {
-                        effect.Execute();
-                    }
-                }
+                FlushScheduling();
             }
         }
     }
@@ -72,6 +62,21 @@ public static class Scheduler
         {
             effect.Execute();
             effect.Scheduled = false;
+        }
+    }
+
+    private static void FlushScheduling()
+    {
+        // Drain effects while allowing new ones to be scheduled during execution
+        while (_schedule.Count > 0)
+        {
+            var effects = _schedule.ToArray();
+            _schedule.Clear();
+
+            foreach (var effect in effects)
+            {
+                effect?.Execute();
+            }
         }
     }
 }
