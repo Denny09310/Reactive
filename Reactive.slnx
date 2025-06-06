@@ -13,4 +13,7 @@
     <Project Path="src/Reactive.Blazor/Reactive.Blazor.csproj" Id="51e413af-2afe-493c-bcc7-02771a321769" />
     <Project Path="src/Reactive.Core/Reactive.Core.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Reactive.Core.Tests/Reactive.Core.Tests.csproj" Id="27151a7b-7e5c-48b2-b728-94c331a36e53" />
+  </Folder>
 </Solution>
