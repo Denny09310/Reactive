@@ -51,12 +51,9 @@ public class Computed<T> : IState<T>
 
             _value = result;
 
-            Effect[] subscribers = [.. _subscribers];
-            _subscribers.Clear();
-
             Batch(() =>
             {
-                foreach (var subscriber in subscribers)
+                foreach (var subscriber in _subscribers.ToList())
                 {
                     Schedule(subscriber);
                 }

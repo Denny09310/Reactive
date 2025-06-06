@@ -60,12 +60,9 @@ public class State<TValue>(TValue initialValue) : IWritableState<TValue>
 
         _value = value;
 
-        Effect[] subscribers = [.. _subscribers];
-        _subscribers.Clear();
-
         Batch(() =>
         {
-            foreach (var subscriber in subscribers)
+            foreach (var subscriber in _subscribers.ToList())
             {
                 Schedule(subscriber);
             }

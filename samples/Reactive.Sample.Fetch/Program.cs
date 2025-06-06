@@ -2,14 +2,13 @@ using Reactive.Core;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using static Reactive.Core.Extensions.Reactivity;
-using static Reactive.Core.Utils.Tracker;
 
 var id = Signal.State(1);
 var resource = Resource(() => new FetchUserArgs(id.Get()), FetchUserAsync);
 
 Effect(() =>
 {
-    var parameters = Untracked(() => resource.Args.Get());
+    var parameters = resource.Args.Get();
     var status = resource.Status.Get();
     var value = resource.Value.Get()!;
 

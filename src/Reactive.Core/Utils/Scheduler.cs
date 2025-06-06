@@ -1,43 +1,47 @@
-namespace Reactive.Core.Utils
+namespace Reactive.Core.Utils;
+
+/// <summary>
+/// Provides batching and scheduling utilities for executing reactive effects.
+/// Uses a depth counter to support nested batching, and ensures that each effect
+/// is only scheduled and executed once per batch.
+/// </summary>
+public static class Scheduler
 {
     /// <summary>
-    /// Provides batching and scheduling utilities for executing actions (effects),
-    /// but tracks nested batches with a depth counter instead of a simple boolean.
+    /// Holds the set of effects scheduled to run at the end of the batch.
+    /// Duplicate entries are avoided via HashSet semantics.
     /// </summary>
-    public static class Scheduler
+    private static readonly HashSet<Effect> _schedule = [];
+
+    /// <summary>
+    /// Tracks nested batching depth. Only the outermost batch will flush the effect queue.
+    /// </summary>
+    private static int _depth = 0;
+
+    /// <summary>
+    /// Executes the given action inside a reactive batching context.
+    /// Nested batches do not flush scheduled effects until the outermost batch completes.
+    /// </summary>
+    /// <param name="action">The action to perform inside the batch.</param>
+    public static void Batch(Action action)
     {
-        // Holds all effects that need to run once the outermost batch completes.
-        private static readonly HashSet<Effect> _effects = [];
+        _depth++;
 
-        // Instead of a bool, we track how many Batch(...) calls are currently "open."
-        private static int _depth = 0;
-
-        /// <summary>
-        /// Executes the given action within a batching context.
-        /// Nested Batch(...) invocations simply increment the counter and do not flush effects
-        /// until the outermost Batch is closed.
-        /// </summary>
-        public static void Batch(Action action)
+        try
         {
-            // Enter a new batch scope
-            _depth++;
+            action();
+        }
+        finally
+        {
+            _depth--;
 
-            try
+            if (_depth == 0)
             {
-                action();
-            }
-            finally
-            {
-                // Exit this batch scope
-                _depth--;
-
-                // Only the *outermost* Batch call actually flushes & executes
-                if (_depth == 0)
+                // Drain effects while allowing new ones to be scheduled during execution
+                while (_schedule.Count > 0)
                 {
-                    // Drain the set of scheduled effects exactly once,
-                    // in case the action (or nested batches) added more.
-                    Effect[] effects = [.. _effects];
-                    _effects.Clear();
+                    var effects = _schedule.ToArray();
+                    _schedule.Clear();
 
                     foreach (var effect in effects)
                     {
@@ -46,21 +50,28 @@ namespace Reactive.Core.Utils
                 }
             }
         }
+    }
 
-        /// <summary>
-        /// Schedules an effect to run. If we're inside *any* batch (depth > 0),
-        /// just enqueue it; otherwise, run it immediately.
-        /// </summary>
-        public static void Schedule(Effect effect)
+    /// <summary>
+    /// Schedules an effect to run. If currently batching, queues it;
+    /// otherwise, runs it immediately. Ensures each effect is only run once per batch.
+    /// </summary>
+    /// <param name="effect">The effect to schedule.</param>
+    public static void Schedule(Effect effect)
+    {
+        if (effect.Scheduled)
+            return;
+
+        effect.Scheduled = true;
+
+        if (_depth > 0)
         {
-            if (_depth > 0)
-            {
-                _effects.Add(effect);
-            }
-            else
-            {
-                effect.Execute();
-            }
+            _schedule.Add(effect);
+        }
+        else
+        {
+            effect.Execute();
+            effect.Scheduled = false;
         }
     }
 }

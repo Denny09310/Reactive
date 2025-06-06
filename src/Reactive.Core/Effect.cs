@@ -3,7 +3,6 @@ using static Reactive.Core.Utils.Tracker;
 
 namespace Reactive.Core;
 
-
 /// <summary>
 /// Represents a reactive effect that tracks dependencies and executes a callback when dependencies change.
 /// </summary>
@@ -46,6 +45,12 @@ public class Effect : IDisposable
     }
 
     /// <summary>
+    /// Indicates whether this effect has already been scheduled during the current batch.
+    /// Used to prevent duplicate executions.
+    /// </summary>
+    internal bool Scheduled { get; set; } = false;
+
+    /// <summary>
     /// Disposes the effect and releases all dependencies.
     /// </summary>
     public void Dispose()
@@ -59,6 +64,8 @@ public class Effect : IDisposable
     /// </summary>
     public void Execute()
     {
+        Scheduled = false;
+
         Invalidate();
         Track(this, () =>
         {
@@ -72,10 +79,12 @@ public class Effect : IDisposable
     /// <param name="signal">The state to link.</param>
     public void Link(IState signal)
     {
-        if(_dependencies.Add(signal))
+        if (!_dependencies.Add(signal))
         {
-            signal.Link(this);
+            return;
         }
+
+        signal.Link(this);
     }
 
     /// <summary>
@@ -102,13 +111,12 @@ public class Effect : IDisposable
     /// </summary>
     private void Invalidate()
     {
-        IState[] dependencies = [.. _dependencies];
-        _dependencies.Clear();
-
-        foreach (var dependency in dependencies)
+        foreach (var dependency in _dependencies.ToList())
         {
             dependency.Unlink(this);
         }
+
+        _dependencies.Clear();
 
         _cleanup?.Invoke();
         _cleanup = null;
